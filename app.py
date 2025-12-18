@@ -1,12 +1,55 @@
 import streamlit as st
+from transformers import pipeline
+import PyPDF2
 
-st.title("ReviseAI Assistant")
-st.write("Welcome! You can enter text to summarize or revise it.")
+# Cache model loading
+@st.cache_resource
+def load_model():
+    return pipeline("summarization", model="facebook/bart-large-cnn")
 
-# Add a text input box
-user_input = st.text_area("Enter text here:")
+summarizer = load_model()
 
-# Add a button
-if st.button("Summarize"):
-    st.write("You entered:", user_input)
-    st.write("This is where AI summary would appear.")
+st.set_page_config(page_title="ReviseAI", layout="centered")
+st.title("📘 ReviseAI – Smart Study Summarizer")
+st.write("Upload lecture notes or PDFs and get concise revision points.")
+
+uploaded_file = st.file_uploader("Upload a PDF file", type=["pdf"])
+
+summary_length = st.selectbox(
+    "Select Summary Length",
+    ["Very Short", "Short", "Medium"]
+)
+
+def extract_text(pdf_file):
+    reader = PyPDF2.PdfReader(pdf_file)
+    text = ""
+    for page in reader.pages:
+        if page.extract_text():
+            text += page.extract_text()
+    return text
+
+def summarize_text(text, length):
+    if length == "Very Short":
+        max_len, min_len = 80, 20
+    elif length == "Medium":
+        max_len, min_len = 200, 80
+    else:
+        max_len, min_len = 130, 40
+
+    summary = summarizer(
+        text[:3000],
+        max_length=max_len,
+        min_length=min_len,
+        do_sample=False
+    )
+    return summary[0]["summary_text"]
+
+if uploaded_file:
+    with st.spinner("Summarizing document..."):
+        text = extract_text(uploaded_file)
+        summary = summarize_text(text, summary_length)
+
+    st.subheader("📌 Key Revision Points")
+    points = summary.split(". ")
+    for point in points:
+        st.markdown(f"- {point.strip()}")
