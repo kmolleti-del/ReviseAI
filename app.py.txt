@@ -1,45 +1,59 @@
+# app.py
+
 import streamlit as st
-from transformers import pipeline
-import PyPDF2
+import pandas as pd
+import openai
+from PyPDF2 import PdfReader
 
-# Load model
-@st.cache_resource
-def load_model():
-    return pipeline("summarization", model="facebook/bart-large-cnn")
+# --- Set your OpenAI API key ---
+openai.api_key = "YOUR_OPENAI_API_KEY"  # Replace with your key or use Streamlit secrets
 
-summarizer = load_model()
+st.set_page_config(page_title="Smart Summarizer", layout="wide")
+st.title("📄 Smart Summarizer App")
+st.write("Upload text, PDF, or Excel, and get a summarized list of points.")
 
-st.set_page_config(page_title="ReviseAI", layout="centered")
-st.title("📘 ReviseAI – Smart Study Summarizer")
+# --- Input method selection ---
+input_method = st.radio("Select input type:", ["Text", "PDF File", "Excel File"])
 
-uploaded_file = st.file_uploader("Upload PDF file", type="pdf")
-summary_length = st.selectbox("Select Summary Length", ["Very Short", "Short", "Medium"])
+text_data = ""
 
-def extract_text(pdf_file):
-    reader = PyPDF2.PdfReader(pdf_file)
-    text = ""
-    for page in reader.pages:
-        if page.extract_text():
-            text += page.extract_text()
-    return text
+# --- Handle input types ---
+if input_method == "Text":
+    text_data = st.text_area("Enter your text here", height=200)
 
-def summarize_text(text, length):
-    if length == "Very Short":
-        max_len, min_len = 80, 20
-    elif length == "Medium":
-        max_len, min_len = 200, 80
+elif input_method == "PDF File":
+    uploaded_file = st.file_uploader("Upload PDF", type=["pdf"])
+    if uploaded_file is not None:
+        pdf_reader = PdfReader(uploaded_file)
+        text_list = [page.extract_text() for page in pdf_reader.pages]
+        text_data = "\n".join(text_list)
+        st.success("PDF content extracted successfully!")
+
+elif input_method == "Excel File":
+    uploaded_file = st.file_uploader("Upload Excel", type=["xlsx", "xls"])
+    if uploaded_file is not None:
+        df = pd.read_excel(uploaded_file)
+        text_data = " ".join(df.astype(str).apply(lambda x: ' '.join(x), axis=1))
+        st.success("Excel content extracted successfully!")
+
+# --- Summarize button ---
+if st.button("Summarize"):
+    if not text_data.strip():
+        st.error("Please provide some input data!")
     else:
-        max_len, min_len = 130, 40
-
-    summary = summarizer(text[:3000], max_length=max_len, min_length=min_len, do_sample=False)
-    return summary[0]["summary_text"]
-
-if uploaded_file:
-    with st.spinner("Summarizing document..."):
-        text = extract_text(uploaded_file)
-        summary = summarize_text(text, summary_length)
-
-    st.subheader("📌 Key Points Summary")
-    points = summary.split(". ")
-    for p in points:
-        st.markdown(f"- {p.strip()}")
+        with st.spinner("Summarizing..."):
+            try:
+                response = openai.ChatCompletion.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": "You are a helpful assistant."},
+                        {"role": "user", "content": f"Summarize the following text in concise bullet points:\n\n{text_data}"}
+                    ],
+                    max_tokens=500,
+                    temperature=0.5,
+                )
+                summary = response['choices'][0]['message']['content']
+                st.subheader("✅ Summary in Points")
+                st.write(summary)
+            except Exception as e:
+                st.error(f"Error while summarizing: {e}")
