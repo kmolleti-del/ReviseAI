@@ -2,12 +2,13 @@ import streamlit as st
 import re
 import heapq
 
+# ---------- PDF reader import ----------
 # Try modern 'pypdf', fallback to 'PyPDF2'
 try:
     from pypdf import PdfReader
 except ImportError:
     from PyPDF2 import PdfReader
-
+# ---------- PDF reader import ends ----------
 
 # -------- Summarizer Function --------
 def summarize_text(text, max_points=3):
