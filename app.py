@@ -1,8 +1,9 @@
 import streamlit as st
 import re
 import heapq
+from PyPDF2 import PdfReader  # pip install PyPDF2
 
-# ---------- add function here ----------
+# -------- summarizer --------
 def summarize_text(text, max_sentences=3):
     if not text or len(text.strip()) == 0:
         return "No text provided to summarize."
@@ -39,14 +40,38 @@ def summarize_text(text, max_sentences=3):
     best_sentences = heapq.nlargest(max_sentences, sentence_scores, key=sentence_scores.get)
     ordered_summary = [s for s in sentences if s in best_sentences]
     return " ".join(ordered_summary)
-# ---------- function ends here ----------
 
+# -------- PDF text extractor --------
+def extract_text_from_pdf(uploaded_file):
+    reader = PdfReader(uploaded_file)
+    text = ""
+    for page in reader.pages:
+        page_text = page.extract_text()
+        if page_text:
+            text += page_text + "\n"
+    return text
+
+# -------- Streamlit UI --------
 st.title("ReviseAI Assistant")
-st.write("Welcome! You can enter text to summarize or revise it.")
+st.write("Upload a PDF or paste text, then click Summarize to get short revision notes.")
 
-user_input = st.text_area("Enter text here:")
+# Text input
+user_input = st.text_area("Enter text here (optional):")
+
+# PDF upload
+uploaded_pdf = st.file_uploader("Or upload a PDF", type=["pdf"])
 
 if st.button("Summarize"):
-    summary = summarize_text(user_input, max_sentences=3)
-    st.subheader("Summary")
-    st.write(summary)
+    source_text = ""
+
+    if uploaded_pdf is not None:
+        source_text = extract_text_from_pdf(uploaded_pdf)
+    elif user_input.strip():
+        source_text = user_input
+    else:
+        st.warning("Please enter some text or upload a PDF.")
+    
+    if source_text:
+        summary = summarize_text(source_text, max_sentences=3)
+        st.subheader("Summary")
+        st.write(summary)
