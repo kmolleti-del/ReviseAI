@@ -2,6 +2,9 @@ import streamlit as st
 import re
 import heapq
 
+# For PDF reading
+from pypdf import PdfReader
+
 # -------- Summarizer Function --------
 def summarize_text(text, max_points=3):
     if not text or len(text.strip()) == 0:
@@ -31,7 +34,7 @@ def summarize_text(text, max_points=3):
     if not freq:
         return sentences
 
-    # Score sentences by word frequency
+    # Score sentences by word frequency, normalized by sentence length
     sentence_scores = {}
     for sent in sentences:
         sent_lower = sent.lower()
@@ -39,7 +42,7 @@ def summarize_text(text, max_points=3):
         for w in freq:
             if w in sent_lower:
                 score += freq[w]
-        sentence_scores[sent] = score / max(len(sent.split()), 1)  # normalize by length
+        sentence_scores[sent] = score / max(len(sent.split()), 1)
 
     # Pick top N sentences as summary points
     best_sentences = heapq.nlargest(max_points, sentence_scores, key=sentence_scores.get)
@@ -49,19 +52,43 @@ def summarize_text(text, max_points=3):
 
     return ordered_summary
 
+# -------- PDF Text Extraction --------
+def extract_text_from_pdf(uploaded_file):
+    reader = PdfReader(uploaded_file)
+    text = ""
+    for page in reader.pages:
+        page_text = page.extract_text()
+        if page_text:
+            text += page_text + " "
+    return text
+
 # -------- Streamlit UI --------
 st.title("ReviseAI Assistant")
-st.write("Enter text to summarize into important points.")
+st.write("Enter text or upload a PDF to get important summary points.")
 
-# Input box
-user_input = st.text_area("Enter text here:")
+# Text input
+user_input = st.text_area("Enter text here (optional):")
+
+# PDF upload
+uploaded_pdf = st.file_uploader("Or upload a PDF", type=["pdf"])
 
 # Number of points
 max_points = st.slider("Number of summary points:", 1, 10, 3)
 
 # Summarize button
 if st.button("Summarize"):
-    points = summarize_text(user_input, max_points)
-    st.subheader("Summary Points")
-    for i, p in enumerate(points, 1):
-        st.write(f"{i}. {p}")
+    source_text = ""
+
+    # Priority: PDF > text input
+    if uploaded_pdf is not None:
+        source_text = extract_text_from_pdf(uploaded_pdf)
+    elif user_input.strip():
+        source_text = user_input
+    else:
+        st.warning("Please enter text or upload a PDF.")
+    
+    if source_text:
+        summary_points = summarize_text(source_text, max_points)
+        st.subheader("Summary Points")
+        for i, point in enumerate(summary_points, 1):
+            st.write(f"{i}. {point}")
