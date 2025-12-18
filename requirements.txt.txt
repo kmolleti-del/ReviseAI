@@ -1,6 +1,3 @@
 streamlit
-transformers
-torch
-pipeline
-PyPDF2
-sentencepiece
+openai
+
