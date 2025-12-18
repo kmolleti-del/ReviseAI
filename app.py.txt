@@ -1,18 +1,12 @@
 import streamlit as st
 
-st.set_page_config(page_title="ReviseAI Assistant", page_icon="📝", layout="wide")
-st.title("📝 ReviseAI Assistant")
-st.write("Paste your notes or text below and get a concise revision summary!")
+st.title("ReviseAI Assistant")
+st.write("Welcome! You can enter text to summarize or revise it.")
 
-user_text = st.text_area("Enter your text here:", height=200)
+# Add a text input box
+user_input = st.text_area("Enter text here:")
 
-if st.button("Generate Summary"):
-    if user_text.strip() == "":
-        st.warning("Please enter some text to summarize.")
-    else:
-        sentences = user_text.split(". ")
-        summary = ". ".join(sentences[:3]) + ("..." if len(sentences) > 3 else "")
-        
-        st.subheader("Summary:")
-        st.write(summary)
-        st.info(f"Word count: {len(user_text.split())}")
+# Add a button
+if st.button("Summarize"):
+    st.write("You entered:", user_input)
+    st.write("This is where AI summary would appear.")
