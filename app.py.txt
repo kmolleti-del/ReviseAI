@@ -1,34 +1,40 @@
 import streamlit as st
-from transformers import pipeline
+import openai
 
 st.title("ReviseAI Assistant")
-st.write("Welcome! Enter text to summarize it using AI.")
+st.write("Enter text and get AI-generated summary in points.")
 
-# Load AI model (cached)
-@st.cache_resource
-def load_model():
-    return pipeline("summarization", model="facebook/bart-large-cnn")
-
-summarizer = load_model()
+# --- OpenAI API key ---
+# Make sure to set environment variable OPENAI_API_KEY on Streamlit Cloud
+openai.api_key = st.secrets["OPENAI_API_KEY"] if "OPENAI_API_KEY" in st.secrets else ""
 
 # Text input
 user_input = st.text_area("Enter text here:", height=250)
 
 # Button
 if st.button("Summarize"):
-    if user_input.strip() == "":
+    if not user_input.strip():
         st.warning("Please enter some text.")
+    elif not openai.api_key:
+        st.error("OpenAI API key not found! Add it to Streamlit secrets.")
     else:
-        with st.spinner("AI is summarizing..."):
-            result = summarizer(
-                user_input[:3000],  # model limit
-                max_length=130,
-                min_length=40,
-                do_sample=False
+        with st.spinner("Generating summary..."):
+            prompt = f"Summarize the following text into short bullet points:\n\n{user_input}\n\n-"
+
+            response = openai.Completion.create(
+                engine="text-davinci-003",  # GPT-3
+                prompt=prompt,
+                max_tokens=300,
+                temperature=0.5,
+                top_p=1,
+                n=1,
+                stop=None
             )
 
-            summary = result[0]["summary_text"]
+            summary_text = response.choices[0].text.strip()
 
         st.subheader("📌 Summary Points")
-        for point in summary.split(". "):
-            st.markdown(f"- {point.strip()}")
+        points = summary_text.split("\n")
+        for point in points:
+            if point.strip():
+                st.markdown(f"- {point.strip().lstrip('-')}")
